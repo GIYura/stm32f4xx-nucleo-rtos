@@ -1,0 +1,3 @@
+[submodule "examples/led/uSDK"]
+	path = examples/led/uSDK
+	url = git@github.com:GIYura/uSDK.git
