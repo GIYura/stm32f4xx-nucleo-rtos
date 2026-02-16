@@ -13,13 +13,17 @@ static void LedBlinkTask(void *pvParams)
     {
         LedToggle(l->led);
 
-        vTaskDelay(pdMS_TO_TICKS(l->periodMs));
+        //taskYIELD();
+        //vTaskDelay(pdMS_TO_TICKS(l->periodMs));
     }
 }
 
 int main(void)
 {
     Board_Init();
+
+    SEGGER_SYSVIEW_Conf();
+    SEGGER_SYSVIEW_Start();
 
     LedBlink_t* ledWhite = Board_GetLed(BOARD_LED_WHITE);
     LedBlink_t* ledGreen = Board_GetLed(BOARD_LED_GREEN);

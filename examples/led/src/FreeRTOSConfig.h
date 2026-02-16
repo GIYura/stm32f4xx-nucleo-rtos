@@ -33,6 +33,9 @@
 #define INCLUDE_vTaskPrioritySet                        1
 #define INCLUDE_xTaskGetCurrentTaskHandle               1
 
+#define INCLUDE_xTaskGetIdleTaskHandle                  1
+#define INCLUDE_pxTaskGetStackStart                     1
+
 /* Hooks */
 #define configUSE_IDLE_HOOK                             1
 #define configUSE_TICK_HOOK                             0
@@ -42,5 +45,7 @@
 #define vPortSVCHandler                                 SVC_Handler
 #define xPortPendSVHandler                              PendSV_Handler
 #define xPortSysTickHandler                             SysTick_Handler
+
+#include "SEGGER_SYSVIEW_FreeRTOS.h"
 
 #endif /* FREERTOS_CONFIG_H */

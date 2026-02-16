@@ -6,6 +6,8 @@
 #include "gpio-name.h"
 #include "cmsis-device.h"
 
+#define DWT_CTRL    (*(volatile uint32_t*)0xE0001000)
+
 /* LEDs gpios */
 static GpioHandle_t m_gpioLedGreen;
 static GpioHandle_t m_gpioLedYellow;
@@ -33,13 +35,15 @@ void Board_Init(void)
     LedInit(&m_ledWhite, &m_gpioLedWhite, PC_4);
 
     m_ledBlink[BOARD_LED_GREEN].led = &m_ledGreen;
-    m_ledBlink[BOARD_LED_GREEN].periodMs = 100;
+    m_ledBlink[BOARD_LED_GREEN].periodMs = 20;
 
     m_ledBlink[BOARD_LED_WHITE].led = &m_ledWhite;
-    m_ledBlink[BOARD_LED_WHITE].periodMs = 250;
+    m_ledBlink[BOARD_LED_WHITE].periodMs = 20;
 
     m_ledBlink[BOARD_LED_YELLOW].led = &m_ledYellow;
-    m_ledBlink[BOARD_LED_YELLOW].periodMs = 1000;
+    m_ledBlink[BOARD_LED_YELLOW].periodMs = 20;
+
+    DWT_CTRL |= (1 << 0);
 }
 
 LedBlink_t* Board_GetLed(BOARD_LED_ID id)

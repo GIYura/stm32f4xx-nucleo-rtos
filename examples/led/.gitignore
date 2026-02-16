@@ -1,2 +1,6 @@
 Build/
 Obj/
+
+src/segger/patch/
+src/segger/dump/
+

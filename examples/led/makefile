@@ -98,7 +98,10 @@ DIRS = \
     $(SUBMODULES)/core/assert \
     $(SUBMODULES)/lib/drivers/led \
     $(SUBMODULES)/core/freertos \
-#    $(SUBMODULES)/core/cmsis
+    $(SRCDIR)/segger/config \
+    $(SRCDIR)/segger/os \
+    $(SRCDIR)/segger/segger \
+    $(SRCDIR)/segger/segger/syscalls
 
 ##############################################
 # List of source files (.c)
@@ -131,7 +134,8 @@ OBJS = $(COBJS) $(ASMOBJS)
 ##############################################
 STANDARD = c99
 OPT = -O0
-DEFINES += -DNDEBUG=1
+DEFINES += -DNDEBUG=1\
+           -DRTT_USE_ASM=0
 
 TARGET = $(BUILD)/$(PLATFORM)-$(APPLICATION)
 EXEC = $(TARGET).elf
@@ -170,7 +174,7 @@ $(OBJDIR)/%.o: %.c
 $(OBJDIR)/%.o: %.s
 	@echo '> Building ASM file $<'
 	@mkdir -p $(dir $@)
-	$(AS) $(CFLAGS) -c $< -o $@
+	$(AS) $(CFLAGS) $(DEFINES) $(INC) -c $< -o $@
 	
 $(TARGET).bin: $(TARGET).elf
 	@echo '> Building bin file from $<'
