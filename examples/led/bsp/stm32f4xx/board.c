@@ -35,13 +35,13 @@ void Board_Init(void)
     LedInit(&m_ledWhite, &m_gpioLedWhite, PC_4);
 
     m_ledBlink[BOARD_LED_GREEN].led = &m_ledGreen;
-    m_ledBlink[BOARD_LED_GREEN].periodMs = 20;
+    m_ledBlink[BOARD_LED_GREEN].periodMs = 100;
 
     m_ledBlink[BOARD_LED_WHITE].led = &m_ledWhite;
-    m_ledBlink[BOARD_LED_WHITE].periodMs = 20;
+    m_ledBlink[BOARD_LED_WHITE].periodMs = 150;
 
     m_ledBlink[BOARD_LED_YELLOW].led = &m_ledYellow;
-    m_ledBlink[BOARD_LED_YELLOW].periodMs = 20;
+    m_ledBlink[BOARD_LED_YELLOW].periodMs = 250;
 
     DWT_CTRL |= (1 << 0);
 }

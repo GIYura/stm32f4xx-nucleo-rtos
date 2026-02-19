@@ -14,6 +14,7 @@
 #define configMINIMAL_STACK_SIZE                        128
 #define configMAX_TASK_NAME_LEN                         10
 #define configIDLE_SHOULD_YIELD                         1
+#define configUSE_TIME_SLICING                          0
 
 /* Memory */
 #define configSUPPORT_DYNAMIC_ALLOCATION                1
@@ -29,6 +30,7 @@
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY            (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
 
 #define INCLUDE_vTaskDelay                              1
+#define INCLUDE_vTaskDelayUntil                         1
 #define INCLUDE_vTaskDelete                             1
 #define INCLUDE_vTaskPrioritySet                        1
 #define INCLUDE_xTaskGetCurrentTaskHandle               1
@@ -42,8 +44,13 @@
 #define configCHECK_FOR_STACK_OVERFLOW                  0
 
 /* define strong functions */
+/* launch first task triggered by SVC instruction */
 #define vPortSVCHandler                                 SVC_Handler
+
+/* used for context switching between tasks */
 #define xPortPendSVHandler                              PendSV_Handler
+
+/* tick management triggered periodically by SysTick timer of ARM */
 #define xPortSysTickHandler                             SysTick_Handler
 
 #include "SEGGER_SYSVIEW_FreeRTOS.h"

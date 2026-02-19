@@ -5,9 +5,19 @@
 
 static volatile uint32_t m_idleCycleCount = 0;
 
+static void Delay(uint32_t d)
+{
+    for (uint32_t i = 0; i < d; i++)
+    {
+        __NOP();
+    }
+}
+
 static void LedBlinkTask(void *pvParams)
 {
     LedBlink_t* l = (LedBlink_t*)pvParams;
+
+    TickType_t xLastWakeTime = xTaskGetTickCount();
 
     for (;;)
     {
@@ -15,12 +25,16 @@ static void LedBlinkTask(void *pvParams)
 
         //taskYIELD();
         //vTaskDelay(pdMS_TO_TICKS(l->periodMs));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(l->periodMs));
+        //Delay(10000);
     }
 }
 
 int main(void)
 {
     Board_Init();
+
+//    SEGGER_UART_init(9600);
 
     SEGGER_SYSVIEW_Conf();
     SEGGER_SYSVIEW_Start();
