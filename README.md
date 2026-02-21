@@ -11,6 +11,7 @@ Peripheral drivers are stored in a shared submodule:
 | SW module name  |      Description                        |       Notes      |
 |-----------------|-----------------------------------------|------------------|
 | led             | Simple LED control via GPIO             |                  |
+| button          | LED + button task notification          |                  |
 
 ### Build and Run
 

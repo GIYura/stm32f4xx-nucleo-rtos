@@ -1,3 +1,6 @@
 [submodule "examples/led/uSDK"]
 	path = examples/led/uSDK
 	url = git@github.com:GIYura/uSDK.git
+[submodule "examples/button/uSDK"]
+	path = examples/button/uSDK
+	url = git@github.com:GIYura/uSDK.git
