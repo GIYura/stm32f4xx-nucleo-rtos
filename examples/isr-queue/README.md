@@ -16,5 +16,5 @@ User Button (PC_13) ISR + queue
 
 Target: NUCLEO-F411RE
 
-![isr queue](isr_queue.png)
+![isr queue](isr-queue.png)
 
