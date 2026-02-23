@@ -7,3 +7,6 @@
 [submodule "examples/task-queue/uSDK"]
 	path = examples/task-queue/uSDK
 	url = git@github.com:GIYura/uSDK.git
+[submodule "examples/isr-queue/uSDK"]
+	path = examples/isr-queue/uSDK
+	url = git@github.com:GIYura/uSDK.git
