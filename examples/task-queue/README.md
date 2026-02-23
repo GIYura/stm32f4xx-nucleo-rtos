@@ -27,3 +27,5 @@ Target: NUCLEO-F411RE
 - RX task check the queue, the queue is empty, so RX task goes to block state
 - idle task is running
 
+![task queue](task-queue.png)
+
