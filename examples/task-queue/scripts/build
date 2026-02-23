@@ -1,0 +1,150 @@
+#!/bin/bash
+
+# ===================== COLORS =========================
+RESET='\e[0m'
+RED='\e[31m'
+GREEN='\e[32m'
+YELLOW='\e[33m'
+BLUE='\e[34m'
+MAGENTA='\e[35m'
+CYAN='\e[36m'
+WHITE='\e[37m'
+
+BOLD='\e[1m'
+UNDERLINE='\e[4m'
+
+# ===================== HEADER =========================
+echo -e "${CYAN}${BOLD}======================================${RESET}"
+echo -e "${CYAN}${BOLD}           BUILD SYSTEM CLI           ${RESET}"
+echo -e "${CYAN}${BOLD}======================================${RESET}"
+echo ""
+
+MAKE_CMD="make"
+PLATFORMS=("stm32f4xx" "cc32xx" "nrf52")
+
+# ======================= OPENOCD ==========================
+OPENOCD_BIN=/opt/openocd/bin/openocd
+OPENOCD_SCRIPTS=/opt/openocd/openocd/scripts
+
+STM32_BOARD_CFG="$OPENOCD_SCRIPTS/board/st_nucleo_f4.cfg"
+CC32_BOARD_CFG="$OPENOCD_SCRIPTS/board/ti_cc3220sf_launchpad.cfg"
+
+# ================= PLATFORM SELECT ========================
+echo -e "${WHITE}Select platform:${RESET}"
+for i in "${!PLATFORMS[@]}"; do
+    echo -e "${GREEN}$((i+1)))${RESET} ${WHITE}${PLATFORMS[$i]}${RESET}"
+done
+echo -e "${YELLOW}h) help${RESET}"
+
+read -p "Enter number: " choice
+
+# ===================== HELP =============================
+if [[ "$choice" == "h" ]]; then
+    echo -e "\n${CYAN}${BOLD}======================================${RESET}"
+    echo -e "${CYAN}${BOLD}                 HELP                 ${RESET}"
+    echo -e "${CYAN}${BOLD}======================================${RESET}"
+
+    echo -e "${BLUE}Features:${RESET}"
+    echo -e "  - Build project for supported platforms:"
+    for i in "${!PLATFORMS[@]}"; do
+        echo -e "      ${GREEN}•${RESET} ${WHITE}${PLATFORMS[$i]}${RESET}"
+    done
+
+    echo -e "  - Clean project (make clean)"
+    echo -e "  - Compile using: ${BOLD}make PLATFORM=<target>${RESET}"
+    echo -e "  - Optional OpenOCD startup after build"
+    echo -e "  - Auto-select correct OpenOCD .cfg file"
+    echo -e "  - Optional binary flashing with st-flash (STM32 only)"
+
+    echo -e "\n${BLUE}Usage example:${RESET}"
+    echo -e "   ${BOLD}./scripts/build.sh${RESET}\n"
+
+    echo -e "${CYAN}${BOLD}======================================${RESET}"
+    exit 0
+fi
+
+# ===================== VALIDATION ========================
+if ! [[ "$choice" =~ ^[0-9]+$ ]]; then echo -e "${RED}Invalid input${RESET}"; exit 1; fi
+if [ "$choice" -lt 1 ] || [ "$choice" -gt "${#PLATFORMS[@]}" ]; then echo -e "${RED}Invalid input${RESET}"; exit 1; fi
+
+PLATFORM="${PLATFORMS[$((choice-1))]}"
+
+echo -e "\n${BLUE}PLATFORM:${RESET} ${WHITE}$PLATFORM${RESET}\n"
+
+# ====================== CLEAN ============================
+$MAKE_CMD clean
+echo ""
+
+# ====================== BUILD OPTION =====================
+read -p "Create new build? (y/n): " choice
+if [[ "$choice" == "y" ]]; then
+    $MAKE_CMD PLATFORM="$PLATFORM" -j$(nproc)
+    echo ""
+else
+    echo -e "${YELLOW}Build skipped.${RESET}"
+fi
+
+# ==================== OPENOCD OPTION =====================
+read -p "Run OpenOCD? (y/n): " choice
+
+if [[ "$choice" == "y" ]]; then
+    
+    if [[ ! -f "$OPENOCD_BIN" ]]; then
+        echo -e "${RED}Error: OpenOCD not found at $OPENOCD_BIN${RESET}"
+        exit 1
+    fi
+
+    if [[ "$PLATFORM" == "stm32f4xx" ]]; then BOARD_CFG="$STM32_BOARD_CFG"
+    elif [[ "$PLATFORM" == "cc32xx" ]]; then BOARD_CFG="$CC32_BOARD_CFG"
+    else echo -e "${RED}Unknown platform.${RESET}"; exit 1; fi
+
+    if [[ ! -f "$BOARD_CFG" ]]; then
+        echo -e "${RED}Error: Config file not found -> $BOARD_CFG${RESET}"
+        exit 1
+    fi
+
+    echo -e "\n${GREEN}Starting OpenOCD...${RESET}"
+    $OPENOCD_BIN -f "$BOARD_CFG"
+else
+    echo -e "${YELLOW}OpenOCD skipped.${RESET}\n"
+fi
+
+# ===================== FLASH BIN STM32 ===================
+if [[ "$PLATFORM" == "stm32f4xx" ]]; then
+    read -p "Flash .bin ? (y/n): " choice
+
+    if [[ "$choice" == "y" ]]; then
+        BIN_FILES=(Build/*.bin)
+
+        if [[ ! -e ${BIN_FILES[0]} ]]; then
+            echo -e "${RED}No .bin files found in Build/${RESET}"
+            exit 1
+        fi
+
+        echo -e "\n${BLUE}Available binary files:${RESET}"
+        for i in "${!BIN_FILES[@]}"; do
+            echo -e "${GREEN}$((i+1)))${RESET} ${WHITE}${BIN_FILES[$i]}${RESET}"
+        done
+
+        read -p "Select number to flash: " choice
+
+        if ! [[ "$choice" =~ ^[0-9]+$ && $choice -ge 1 && $choice -le ${#BIN_FILES[@]} ]]; then
+            echo -e "${RED}Invalid selection${RESET}"
+            exit 1
+        fi
+
+        BIN_PATH="${BIN_FILES[$((choice-1))]}"
+        echo -e "\n${GREEN}Flashing:${RESET} ${WHITE}$BIN_PATH${RESET}"
+        st-flash write "$BIN_PATH" 0x8000000
+        echo -e "${GREEN}Flash complete.${RESET}"
+    fi
+else
+    echo -e "${YELLOW}NOTE:${RESET} ${WHITE}Binary flashing disabled (non-STM32).${RESET}\n"
+fi
+
+# ======================= FOOTER ==========================
+echo -e "\n${CYAN}${BOLD}======================================${RESET}"
+echo -e "${CYAN}${BOLD}              BUILD DONE              ${RESET}"
+echo -e "${BLUE} Platform :${RESET} ${WHITE}$PLATFORM${RESET}"
+echo -e "${BLUE} Output   :${RESET} ${WHITE}$(ls Build/*.bin 2>/dev/null)${RESET}"
+echo -e "${CYAN}${BOLD}======================================${RESET}"

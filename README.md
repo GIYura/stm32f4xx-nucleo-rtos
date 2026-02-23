@@ -12,6 +12,7 @@ Peripheral drivers are stored in a shared submodule:
 |-----------------|-----------------------------------------|------------------|
 | led             | Simple LED control via GPIO             |                  |
 | button          | LED + button task notification          |                  |
+| task-queue      | Two tasks interact over queue           |                  |
 
 ### Build and Run
 
