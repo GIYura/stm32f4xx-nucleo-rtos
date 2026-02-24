@@ -6,7 +6,7 @@ File    : HIF_UART.c
 Purpose : Terminal control for Flasher using USART1 on PA9/PA10
 --------- END-OF-HEADER ---------------------------------*/
 
-
+#if 0
 #include "SEGGER_SYSVIEW.h"
 
 #if (SEGGER_UART_REC == 1)
@@ -276,3 +276,178 @@ void HIF_UART_Init(uint32_t Baudrate, UART_ON_TX_FUNC_P cbOnTx, UART_ON_RX_FUNC_
 }
 
 #endif
+#endif
+
+
+/**********************************************************
+* Minimal SysView UART transport for STM32F411 (USART1, PA9/PA10)
+* Assumes default clock: HSI 16 MHz, APB2 = 16 MHz
+***********************************************************/
+
+#include "SEGGER_SYSVIEW.h"
+
+#if (SEGGER_UART_REC == 1)
+
+#include "SEGGER_RTT.h"
+#include "stm32f4xx.h"
+
+/* --------- Clock assumptions (adjust if you enable PLL) --------- */
+#define UART_PCLK_HZ        (16000000UL)   /* PCLK2 for USART1 when running from HSI 16 MHz */
+#define UART_AF             (7U)           /* AF7 = USART1/2 */
+#define UART_IRQn           USART1_IRQn
+
+/* SysView "hello" */
+#define _SERVER_HELLO_SIZE        (4)
+#define _TARGET_HELLO_SIZE        (4)
+
+static const uint8_t _abHelloMsg[_TARGET_HELLO_SIZE] = {
+  'S', 'V',
+  (SEGGER_SYSVIEW_VERSION / 10000),
+  (SEGGER_SYSVIEW_VERSION / 1000) % 10
+};
+
+static struct {
+  uint8_t NumBytesHelloRcvd;
+  uint8_t NumBytesHelloSent;
+  int     ChannelID;
+} _SVInfo = {0, 0, 1};
+
+typedef void UART_ON_RX_FUNC(uint8_t Data);
+typedef int  UART_ON_TX_FUNC(uint8_t* pChar);
+
+typedef UART_ON_TX_FUNC* UART_ON_TX_FUNC_P;
+typedef UART_ON_RX_FUNC* UART_ON_RX_FUNC_P;
+
+static UART_ON_RX_FUNC_P _cbOnRx;
+static UART_ON_TX_FUNC_P _cbOnTx;
+
+/* Forward */
+static void HIF_UART_Init(uint32_t Baudrate, UART_ON_TX_FUNC_P cbOnTx, UART_ON_RX_FUNC_P cbOnRx);
+static void HIF_UART_EnableTXEInterrupt(void);
+
+/* --------- SysView start on first real traffic --------- */
+static void _StartSysView(void) {
+  if (SEGGER_SYSVIEW_IsStarted() == 0) {
+    SEGGER_SYSVIEW_Start();
+  }
+}
+
+static void _cbOnUARTRx(uint8_t Data) {
+  if (_SVInfo.NumBytesHelloRcvd < _SERVER_HELLO_SIZE) {
+    _SVInfo.NumBytesHelloRcvd++;
+    return;
+  }
+  _StartSysView();
+  SEGGER_RTT_WriteDownBuffer(_SVInfo.ChannelID, &Data, 1);
+}
+
+static int _cbOnUARTTx(uint8_t* pChar) {
+  if (_SVInfo.NumBytesHelloSent < _TARGET_HELLO_SIZE) {
+    *pChar = _abHelloMsg[_SVInfo.NumBytesHelloSent++];
+    return 1;
+  }
+
+  int r = SEGGER_RTT_ReadUpBufferNoLock(_SVInfo.ChannelID, pChar, 1);
+  if (r < 0) {
+    r = 0;
+  }
+  return r;
+}
+
+/* Public entry */
+void SEGGER_UART_init(uint32_t baud) {
+  HIF_UART_Init(baud, _cbOnUARTTx, _cbOnUARTRx);
+  HIF_UART_EnableTXEInterrupt(); /* Kick TX */
+}
+
+/* --------- USART1 IRQ handler --------- */
+void USART1_IRQHandler(void) {
+  uint32_t sr = USART1->SR;
+  uint8_t  v;
+
+  /* RX */
+  if (sr & USART_SR_RXNE) {
+    v = (uint8_t)USART1->DR; /* reading DR clears RXNE */
+    if (_cbOnRx) {
+      _cbOnRx(v);
+    }
+  }
+
+  /* TXE: data register empty */
+  if (sr & USART_SR_TXE) {
+    if (_cbOnTx == 0) {
+      USART1->CR1 &= ~USART_CR1_TXEIE;
+      return;
+    }
+
+    int r = _cbOnTx(&v);
+    if (r == 0) {
+      USART1->CR1 &= ~USART_CR1_TXEIE; /* nothing to send */
+    } else {
+      /* read SR then write DR is the recommended sequence */
+      (void)USART1->SR;
+      USART1->DR = v;
+    }
+  }
+}
+
+/* Enable TXE interrupt (start sending) */
+static void HIF_UART_EnableTXEInterrupt(void) {
+  USART1->CR1 |= USART_CR1_TXEIE;
+}
+
+/* Wait for end of transmission (optional helper) */
+void HIF_UART_WaitForTxEnd(void) {
+  while ((USART1->SR & USART_SR_TXE) == 0) {;}
+  while ((USART1->SR & USART_SR_TC)  == 0) {;}
+}
+
+/* --------- Init USART1 on PA9/PA10 --------- */
+static uint32_t _CalcBRR_Over16(uint32_t pclk, uint32_t baud) {
+  /* Simple & good enough for 16 MHz: BRR ≈ pclk/baud with rounding */
+  return (pclk + (baud / 2U)) / baud;
+}
+
+static void HIF_UART_Init(uint32_t Baudrate, UART_ON_TX_FUNC_P cbOnTx, UART_ON_RX_FUNC_P cbOnRx) {
+  /* Enable clocks: GPIOA + USART1 */
+  RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+  RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+
+  /* PA9 (TX), PA10 (RX) -> Alternate Function AF7 */
+  /* MODER: 10b for alternate */
+  GPIOA->MODER &= ~((3U << (9U * 2U)) | (3U << (10U * 2U)));
+  GPIOA->MODER |=  ((2U << (9U * 2U)) | (2U << (10U * 2U)));
+
+  /* AFRH for pins 8..15 */
+  GPIOA->AFR[1] &= ~((0xFU << ((9U  - 8U) * 4U)) | (0xFU << ((10U - 8U) * 4U)));
+  GPIOA->AFR[1] |=  ((UART_AF << ((9U  - 8U) * 4U)) | (UART_AF << ((10U - 8U) * 4U)));
+
+  /* Optional: set speed/pullups (not strictly required for a quick test) */
+  /* GPIOA->OSPEEDR |= (3U << (9U*2U)) | (3U << (10U*2U)); */
+
+  /* Disable USART before config */
+  USART1->CR1 = 0;
+  USART1->CR2 = 0;
+  USART1->CR3 = 0;
+
+  /* Baudrate */
+  USART1->BRR = _CalcBRR_Over16(UART_PCLK_HZ, Baudrate);
+
+  /* Enable RXNE interrupt + RX + TX + USART */
+  USART1->CR1 =
+      USART_CR1_RXNEIE |
+      USART_CR1_TE |
+      USART_CR1_RE |
+      USART_CR1_UE;
+
+  /* Callbacks */
+  _cbOnRx = cbOnRx;
+  _cbOnTx = cbOnTx;
+
+  /* NVIC: priority must be numerically >= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY if you ever call FreeRTOS FromISR here.
+     Этот транспорт обычно НЕ должен дергать FreeRTOS API, но ставим безопасно 6 как у тебя. */
+  NVIC_SetPriority(UART_IRQn, 6);
+  NVIC_EnableIRQ(UART_IRQn);
+}
+
+#endif /* SEGGER_UART_REC == 1 */
