@@ -15,7 +15,6 @@
 #define configMAX_TASK_NAME_LEN                         10
 #define configIDLE_SHOULD_YIELD                         1
 #define configUSE_TIME_SLICING                          0
-#define INCLUDE_vTaskSuspend                            1
 
 /* Memory */
 #define configSUPPORT_DYNAMIC_ALLOCATION                1
@@ -35,6 +34,8 @@
 #define INCLUDE_vTaskDelete                             1
 #define INCLUDE_vTaskPrioritySet                        1
 #define INCLUDE_xTaskGetCurrentTaskHandle               1
+#define INCLUDE_vTaskSuspend                            0
+//#define configUSE_16_BIT_TICKS                          1
 
 #define INCLUDE_xTaskGetIdleTaskHandle                  1
 #define INCLUDE_pxTaskGetStackStart                     1

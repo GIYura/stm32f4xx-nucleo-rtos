@@ -7,6 +7,12 @@ static xQueueHandle m_queue = NULL;
 
 static volatile uint32_t m_idleCycleCount = 0;
 
+static uint8_t m_queueRxSuccessCounter = 0;
+static uint8_t m_queueRxFailCounter = 0;
+
+static uint8_t m_queueTxSuccessCounter = 0;
+static uint8_t m_queueTxFailCounter = 0;
+
 static void TxTask(void* pvParams)
 {
     (void)pvParams;
@@ -19,6 +25,11 @@ static void TxTask(void* pvParams)
         if (status == pdTRUE)
         {
             value++;
+            ++m_queueTxSuccessCounter;
+        }
+        else
+        {
+            ++m_queueTxFailCounter;
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -29,17 +40,22 @@ static void RxTask(void* pvParams)
 {
     (void)pvParams;
 
-    uint32_t expected = 0;
-
     for (;;)
     {
         uint32_t value = 0;
 
         BaseType_t status = xQueueReceive(m_queue, &value, portMAX_DELAY);
-        configASSERT(status == pdTRUE);
 
-        configASSERT(value == expected);
-        expected++;
+        if (status == pdTRUE)
+        {
+            ++m_queueRxSuccessCounter;
+        }
+        else
+        {
+            ++m_queueRxFailCounter;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(150));
     }
 }
 
@@ -50,7 +66,8 @@ int main(void)
     SEGGER_SYSVIEW_Conf();
     SEGGER_SYSVIEW_Start();
 
-    m_queue = xQueueCreate(1, sizeof(uint8_t));
+    m_queue = xQueueCreate(1, sizeof(uint32_t));
+
     if (m_queue != NULL)
     {
         BaseType_t t1 = xTaskCreate(TxTask, "TX TASK", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
